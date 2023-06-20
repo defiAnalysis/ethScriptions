@@ -89,6 +89,7 @@ func (this *BlockAnalysis) Run() {
 	go this.monitorHeight()
 	go this.analysisBlock()
 	go this.analysisTransaction()
+	go this.validTransaction()
 	//定时初始化以太坊客户端
 
 	go this.DecodeData()
@@ -242,8 +243,6 @@ func (this *BlockAnalysis) analysisTransaction() {
 			}
 
 			if flag2 {
-				beego.Info("str:", str)
-
 				from, err := GetFrom(tran)
 				if err != nil {
 					beego.Info("GetFrom err：", err.Error())
@@ -257,6 +256,8 @@ func (this *BlockAnalysis) analysisTransaction() {
 					BlockTime:  tranStr.block.Time(),
 					Content:    strings.TrimPrefix(str, "data:,"),
 				}
+
+				beego.Info("data:", data)
 
 				this.validTransactions <- data
 			}
