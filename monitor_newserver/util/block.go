@@ -239,6 +239,8 @@ func (this *BlockAnalysis) analysisTransaction() {
 			}
 
 			if flag2 {
+				beego.Info("str:", str)
+
 				from, err := GetFrom(tran)
 				if err != nil {
 					beego.Info("GetFrom err：", err.Error())
@@ -310,10 +312,10 @@ func (this *BlockAnalysis) DecodeData() {
 		beego.Info("inputData:", inputData)
 
 		ethScription := models.EthScription{
-			Content: inputData.Content,
+			DecodeData: inputData.DecodeData,
 		}
 
-		if err := this.session.Read(&ethScription, "content"); err != nil && err != orm.ErrNoRows {
+		if err := this.session.Read(&ethScription, "decode_data"); err != nil && err != orm.ErrNoRows {
 			beego.Error("session Read err:", err.Error())
 
 			return
