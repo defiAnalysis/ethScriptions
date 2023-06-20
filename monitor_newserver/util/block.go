@@ -151,7 +151,7 @@ func (this *BlockAnalysis) monitorHeight() {
 		}
 
 		this.blockheight, _ = this.client.BlockNumber(context.Background())
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(6 * time.Second)
 	}
 }
 
