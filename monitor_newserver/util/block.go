@@ -161,35 +161,49 @@ func (this *BlockAnalysis) monitorBlock(start, end uint64) {
 
 // 解析区块
 func (this *BlockAnalysis) analysisBlock() {
+	rpcs := strings.Split(beego.AppConfig.String("rpcs::ETH"), ",")
 	for {
 		if runtime.NumGoroutine() < 1000 {
 			blockheight := <-this.block
 			beego.Info("[", this.chainid, "]", "[blockheight]", blockheight)
+
 			go func() {
 			A:
 				for {
-					if block, e := this.client.BlockByNumber(context.Background(), big.NewInt(int64(blockheight))); e != nil {
-						log.Println("区块解析失败，打回：", blockheight)
-						time.Sleep(4 * time.Second)
+					rand.Seed(time.Now().UnixNano())
+					index := rand.Intn(len(rpcs))
+					client, err := ethclient.Dial(rpcs[index])
+					if err != nil {
+						log.Println("节点客户端初始化异常：", err)
+						time.Sleep(200 * time.Millisecond)
+
 						continue A
 					} else {
-						if block != nil {
-							log.Println("Height: ", "[", blockheight, "]")
-							for _, tran := range block.Transactions() {
-								if tran == nil {
-									continue
-								}
-
-								tranData := TransactionStr{
-									transaction: *tran,
-									block:       *block,
-								}
-
-								this.transaction <- tranData
-							}
-							break A
-						} else {
+						if block, e := client.BlockByNumber(context.Background(), big.NewInt(int64(blockheight))); e != nil {
+							log.Println("区块解析失败，打回：", blockheight)
+							beego.Error("e:", e.Error())
+							time.Sleep(200 * time.Millisecond)
 							continue A
+						} else {
+							if block != nil {
+								log.Println("Height: ", "[", blockheight, "]")
+								for _, tran := range block.Transactions() {
+									if tran == nil {
+										continue
+									}
+
+									tranData := TransactionStr{
+										transaction: *tran,
+										block:       *block,
+									}
+
+									this.transaction <- tranData
+								}
+
+								break A
+							} else {
+								continue A
+							}
 						}
 					}
 				}
