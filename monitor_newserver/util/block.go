@@ -260,6 +260,7 @@ func (this *BlockAnalysis) analysisTransaction() {
 
 				this.validTransactions <- data
 			}
+
 		}(tx)
 	}
 }
@@ -282,6 +283,8 @@ func (this *BlockAnalysis) validTransaction() {
 	for {
 		data := <-this.validTransactions
 
+		beego.Info("data:", data)
+
 		go func(data InputData) {
 			for {
 				rand.Seed(time.Now().UnixNano())
@@ -299,6 +302,7 @@ func (this *BlockAnalysis) validTransaction() {
 						continue
 					} else {
 						if receipt.Status == 1 {
+							beego.Info("发送data:", data)
 							this.inputData <- data
 							return
 						} else {
@@ -328,7 +332,7 @@ func (this *BlockAnalysis) DecodeData() {
 		if err := this.session.Read(&ethScription, "decode_data"); err != nil && err != orm.ErrNoRows {
 			beego.Error("session Read err:", err.Error())
 
-			return
+			continue
 		} else if err != nil && err == orm.ErrNoRows {
 			ethScripts := models.EthScription{
 				DecodeData: inputData.DecodeData,
@@ -342,11 +346,7 @@ func (this *BlockAnalysis) DecodeData() {
 			if _, err := this.session.Insert(&ethScripts); err != nil {
 				beego.Error("err:", err)
 			}
-
-			return
 		}
-
-		return
 	}
 }
 
