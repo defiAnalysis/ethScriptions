@@ -44,11 +44,12 @@ type InputData struct {
 	Owner      *common.Address `json:"owner"`
 	Hash       common.Hash     `json:"hash"`
 	BlockTime  uint64          `json:"block_time"`
+	Content    string          `json:"content"`
 }
 
 type TransactionStr struct {
-	transaction *types.Transaction
-	block       *types.Block
+	transaction types.Transaction
+	block       types.Block
 }
 
 func (this *BlockAnalysis) Run() {
@@ -175,9 +176,13 @@ func (this *BlockAnalysis) analysisBlock() {
 						if block != nil {
 							log.Println("Height: ", "[", blockheight, "]")
 							for _, tran := range block.Transactions() {
+								if tran == nil {
+									continue
+								}
+
 								tranData := TransactionStr{
-									transaction: tran,
-									block:       block,
+									transaction: *tran,
+									block:       *block,
 								}
 
 								this.transaction <- tranData
@@ -198,7 +203,7 @@ func (this *BlockAnalysis) analysisTransaction() {
 
 	for {
 		tx := <-this.transaction
-		if tx.transaction == nil {
+		if len(tx.transaction.Data()) == 0 {
 			continue
 		}
 
@@ -214,7 +219,7 @@ func (this *BlockAnalysis) analysisTransaction() {
 			}
 
 			flag2 := false
-			if strings.HasPrefix(str, "data:") {
+			if strings.HasPrefix(str, "data:,") {
 				fmt.Println("字符串以'data:,'开头")
 				flag2 = true
 			}
@@ -231,6 +236,7 @@ func (this *BlockAnalysis) analysisTransaction() {
 					Owner:      tran.To(),
 					Hash:       tran.Hash(),
 					BlockTime:  tranStr.block.Time(),
+					Content:    strings.TrimPrefix(str, "data:,"),
 				}
 
 				go this.validTransaction(data)
@@ -253,20 +259,33 @@ func findAddr(adds []string, addr string) bool {
 
 // 校验交易
 func (this *BlockAnalysis) validTransaction(data InputData) {
+	rpcs := strings.Split(beego.AppConfig.String("rpcs::ETH"), ",")
+
 	for {
-		client := this.client
-		if receipt, e := client.TransactionReceipt(context.Background(), data.Hash); e != nil {
-			time.Sleep(1 * time.Second)
-			log.Println("e:", e)
+		rand.Seed(time.Now().UnixNano())
+		index := rand.Intn(len(rpcs))
+		client, err := ethclient.Dial(rpcs[index])
+		if err != nil {
+			log.Println("节点客户端初始化异常：", err)
+			time.Sleep(200 * time.Millisecond)
+
 			continue
 		} else {
-			if receipt.Status == 1 {
-				this.inputData <- data
-				return
+			if receipt, e := client.TransactionReceipt(context.Background(), data.Hash); e != nil {
+				time.Sleep(200 * time.Millisecond)
+				log.Println("e:", e)
+				continue
 			} else {
-				return
+				if receipt.Status == 1 {
+					this.inputData <- data
+					return
+				} else {
+					return
+				}
 			}
 		}
+
+		return
 	}
 }
 
@@ -275,23 +294,37 @@ func (this *BlockAnalysis) DecodeData() {
 	for {
 		inputData := <-this.inputData
 		beego.Info("inputData:", inputData)
-		ethScripts := models.EthScription{
-			DecodeData: inputData.DecodeData,
-			Creator:    inputData.Creator.String(),
-			Owner:      inputData.Owner.String(),
-			Hash:       inputData.Hash.String(),
-			BlockTime:  inputData.BlockTime,
+
+		ethScription := models.EthScription{
+			Content: inputData.Content,
 		}
 
-		if _, err := this.session.Insert(&ethScripts); err != nil {
-			beego.Error("err:", err)
+		if err := this.session.Read(&ethScription, "content"); err != nil && err != orm.ErrNoRows {
+			beego.Error("session Read err:", err.Error())
+
+			return
+		} else if err != nil && err == orm.ErrNoRows {
+			ethScripts := models.EthScription{
+				DecodeData: inputData.DecodeData,
+				Creator:    inputData.Creator.String(),
+				Owner:      inputData.Owner.String(),
+				Hash:       inputData.Hash.String(),
+				BlockTime:  inputData.BlockTime,
+				Content:    inputData.Content,
+			}
+
+			if _, err := this.session.Insert(&ethScripts); err != nil {
+				beego.Error("err:", err)
+			}
+
+			return
 		}
 
 		return
 	}
 }
 
-func GetFrom(tx *types.Transaction) (string, error) {
-	from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
+func GetFrom(tx types.Transaction) (string, error) {
+	from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), &tx)
 	return from.String(), err
 }
