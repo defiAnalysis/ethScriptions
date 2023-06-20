@@ -9,6 +9,7 @@ type EthScription struct {
 	Content    string `orm:"size(255);description(内容)" form:"content" json:"content"`
 	Type       string `orm:"size(10);description(类型)" form:"type" json:"type"`
 	BlockTime  uint64 `orm:"description(时间)" form:"block_time" json:"block_time"`
+	Classify   int64  `orm:"description(类型)" form:"classify" json:"classify"`
 }
 
 func (a *EthScription) TableName() string {
