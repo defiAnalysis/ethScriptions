@@ -153,7 +153,7 @@ func (this *BlockAnalysis) monitorHeight() {
 
 func (this *BlockAnalysis) monitorBlock(start, end uint64) {
 	for start <= end {
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 		this.block <- start
 		start++
 	}
