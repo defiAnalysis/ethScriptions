@@ -35,6 +35,8 @@ type BlockAnalysis struct {
 
 	inputData chan InputData
 
+	validTransactions chan InputData
+
 	session orm.Ormer
 }
 
@@ -79,7 +81,8 @@ func (this *BlockAnalysis) Run() {
 	this.transaction = make(chan TransactionStr, 5000)
 	this.block = make(chan uint64, 2000)
 
-	this.inputData = make(chan InputData, 2000)
+	this.inputData = make(chan InputData, 4000)
+	this.validTransactions = make(chan InputData, 8000)
 
 	this.session = orm.NewOrm()
 
@@ -255,7 +258,7 @@ func (this *BlockAnalysis) analysisTransaction() {
 					Content:    strings.TrimPrefix(str, "data:,"),
 				}
 
-				go this.validTransaction(data)
+				this.validTransactions <- data
 			}
 		}(tx)
 	}
@@ -274,35 +277,42 @@ func findAddr(adds []string, addr string) bool {
 }
 
 // 校验交易
-func (this *BlockAnalysis) validTransaction(data InputData) {
+func (this *BlockAnalysis) validTransaction() {
 	rpcs := strings.Split(beego.AppConfig.String("rpcs::ETH"), ",")
-
 	for {
-		rand.Seed(time.Now().UnixNano())
-		index := rand.Intn(len(rpcs))
-		client, err := ethclient.Dial(rpcs[index])
-		if err != nil {
-			log.Println("节点客户端初始化异常：", err)
-			time.Sleep(200 * time.Millisecond)
+		data := <-this.validTransactions
 
-			continue
-		} else {
-			if receipt, e := client.TransactionReceipt(context.Background(), data.Hash); e != nil {
-				time.Sleep(200 * time.Millisecond)
-				log.Println("e:", e)
-				continue
-			} else {
-				if receipt.Status == 1 {
-					this.inputData <- data
-					return
+		go func(data InputData) {
+			for {
+				rand.Seed(time.Now().UnixNano())
+				index := rand.Intn(len(rpcs))
+				client, err := ethclient.Dial(rpcs[index])
+				if err != nil {
+					log.Println("节点客户端初始化异常：", err)
+					time.Sleep(200 * time.Millisecond)
+
+					continue
 				} else {
-					return
+					if receipt, e := client.TransactionReceipt(context.Background(), data.Hash); e != nil {
+						time.Sleep(200 * time.Millisecond)
+						log.Println("e:", e)
+						continue
+					} else {
+						if receipt.Status == 1 {
+							this.inputData <- data
+							return
+						} else {
+							return
+						}
+					}
 				}
-			}
-		}
 
-		return
+				return
+			}
+		}(data)
+
 	}
+
 }
 
 // 打怪开始
