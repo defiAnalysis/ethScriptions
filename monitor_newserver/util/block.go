@@ -143,7 +143,7 @@ func (this *BlockAnalysis) monitorHeight() {
 				this.lastheight += 100
 			}
 
-			go redis.RedisSet("newHeigh:"+this.chainid, this.lastheight, -1)
+			go redis.RedisSet("height:"+this.chainid, this.lastheight, -1)
 		}
 
 		this.blockheight, _ = this.client.BlockNumber(context.Background())
