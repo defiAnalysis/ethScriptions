@@ -41,12 +41,14 @@ type BlockAnalysis struct {
 }
 
 type InputData struct {
-	DecodeData string          `json:"decode_data"`
-	Creator    common.Address  `json:"creator"`
-	Owner      *common.Address `json:"owner"`
-	Hash       common.Hash     `json:"hash"`
-	BlockTime  uint64          `json:"block_time"`
-	Content    string          `json:"content"`
+	DecodeData  string          `json:"decode_data"`
+	Creator     common.Address  `json:"creator"`
+	Owner       *common.Address `json:"owner"`
+	Hash        common.Hash     `json:"hash"`
+	BlockTime   uint64          `json:"block_time"`
+	BlockHeight uint64
+	Ctime       time.Time `json:"ctime"`
+	Content     string    `json:"content"`
 }
 
 type TransactionStr struct {
@@ -57,7 +59,7 @@ type TransactionStr struct {
 func (this *BlockAnalysis) Run() {
 	this.chainid = "ETH"
 
-	this.lastheight, _ = redis.RedisGet("height:" + this.chainid).Uint64()
+	this.lastheight, _ = redis.RedisGet("height1:" + this.chainid).Uint64()
 
 	client, err := ethclient.Dial(beego.AppConfig.String("rpc::ETH"))
 
@@ -73,9 +75,11 @@ func (this *BlockAnalysis) Run() {
 		this.blockheight = blockheight
 	}
 
+	beego.Info("this.lastheight:", this.lastheight)
+
 	if this.lastheight == 0 {
 		this.lastheight = this.blockheight - 1
-		redis.RedisSet("height:"+this.chainid, this.lastheight, -1)
+		redis.RedisSet("height1:"+this.chainid, this.lastheight, -1)
 	}
 
 	this.transaction = make(chan TransactionStr, 5000)
@@ -147,7 +151,7 @@ func (this *BlockAnalysis) monitorHeight() {
 				this.lastheight += 100
 			}
 
-			go redis.RedisSet("height:"+this.chainid, this.lastheight, -1)
+			go redis.RedisSet("height1:"+this.chainid, this.lastheight, -1)
 		}
 
 		this.blockheight, _ = this.client.BlockNumber(context.Background())
@@ -230,31 +234,39 @@ func (this *BlockAnalysis) analysisTransaction() {
 
 			inputData := hex.EncodeToString(tran.Data())
 
-			str, err := utils.HexToString(inputData)
-			if err != nil {
-				fmt.Println("解析失败:", err)
-				return
-			}
-
 			flag2 := false
-			if strings.HasPrefix(str, "data:,") {
-				fmt.Println("字符串以'data:,'开头")
+			if strings.HasPrefix(inputData, "646174613a") {
 				flag2 = true
 			}
 
 			if flag2 {
+				str, err := utils.HexToString(inputData)
+				if err != nil {
+					fmt.Println("解析失败:", err)
+					return
+				}
+
 				from, err := GetFrom(tran)
 				if err != nil {
 					beego.Info("GetFrom err：", err.Error())
 				}
 
+				var Content string
+				if strings.HasPrefix(inputData, "data:") {
+					Content = strings.TrimPrefix(str, "data:")
+				} else if strings.HasPrefix(inputData, "data:,") {
+					Content = strings.TrimPrefix(str, "data:,")
+				}
+
 				data := InputData{
-					DecodeData: str,
-					Creator:    common.HexToAddress(from),
-					Owner:      tran.To(),
-					Hash:       tran.Hash(),
-					BlockTime:  tranStr.block.Time(),
-					Content:    strings.TrimPrefix(str, "data:,"),
+					DecodeData:  str,
+					Creator:     common.HexToAddress(from),
+					Owner:       tran.To(),
+					Hash:        tran.Hash(),
+					BlockTime:   tranStr.block.Time(),
+					Ctime:       time.Unix(int64(tranStr.block.Time()), 0),
+					Content:     Content,
+					BlockHeight: tranStr.block.Number().Uint64(),
 				}
 
 				beego.Info("data:", data)
@@ -336,12 +348,14 @@ func (this *BlockAnalysis) DecodeData() {
 			continue
 		} else if err != nil && err == orm.ErrNoRows {
 			ethScripts := models.EthScription{
-				DecodeData: inputData.DecodeData,
-				Creator:    inputData.Creator.String(),
-				Owner:      inputData.Owner.String(),
-				Hash:       inputData.Hash.String(),
-				BlockTime:  inputData.BlockTime,
-				Content:    inputData.Content,
+				DecodeData:  inputData.DecodeData,
+				Creator:     inputData.Creator.String(),
+				Owner:       inputData.Owner.String(),
+				Hash:        inputData.Hash.String(),
+				BlockTime:   inputData.BlockTime,
+				Ctime:       inputData.Ctime,
+				Content:     inputData.Content,
+				BlockHeight: inputData.BlockHeight,
 			}
 
 			if _, err := this.session.Insert(&ethScripts); err != nil {

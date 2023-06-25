@@ -335,6 +335,7 @@ func (this *BlockAnalysis) DecodeData() {
 				Owner:      inputData.Owner.String(),
 				Hash:       inputData.Hash.String(),
 				BlockTime:  inputData.BlockTime,
+				Ctime:      inputData.C
 				Content:    inputData.Content,
 			}
 

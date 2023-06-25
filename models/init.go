@@ -26,7 +26,6 @@ func init() {
 	//数据库IP（域名）
 	dbHost := beego.AppConfig.String(dbType + "::db_host")
 
-	beego.Info("dbHost:", dbHost)
 	//数据库端口
 	dbPort := beego.AppConfig.String(dbType + "::db_port")
 	switch dbType {
@@ -54,6 +53,7 @@ func init() {
 func initRegister() {
 	orm.RegisterModel(
 		new(EthScription),
+		new(EthDomain),
 	)
 }
 
@@ -65,4 +65,8 @@ func TableName(name string) string {
 
 func EthScriptionTBName() string {
 	return TableName("ethscription")
+}
+
+func EthDomainTBName() string {
+	return TableName("ethdomain")
 }
