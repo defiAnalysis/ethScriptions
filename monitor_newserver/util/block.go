@@ -252,10 +252,10 @@ func (this *BlockAnalysis) analysisTransaction() {
 				}
 
 				var Content string
-				if strings.HasPrefix(inputData, "data:") {
-					Content = strings.TrimPrefix(str, "data:")
-				} else if strings.HasPrefix(inputData, "data:,") {
+				if strings.HasPrefix(inputData, "data:,") {
 					Content = strings.TrimPrefix(str, "data:,")
+				} else if strings.HasPrefix(inputData, "data:") {
+					Content = strings.TrimPrefix(str, "data:")
 				}
 
 				data := InputData{
