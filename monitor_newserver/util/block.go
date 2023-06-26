@@ -361,6 +361,19 @@ func (this *BlockAnalysis) DecodeData() {
 			if _, err := this.session.Insert(&ethScripts); err != nil {
 				beego.Error("err:", err)
 			}
+		} else {
+			if ethScription.BlockHeight > inputData.BlockHeight {
+				ethScription.Creator = inputData.Creator.String()
+				ethScription.Owner = inputData.Owner.String()
+				ethScription.Hash = inputData.Hash.String()
+				ethScription.BlockTime = inputData.BlockTime
+				ethScription.Ctime = inputData.Ctime
+				ethScription.BlockHeight = inputData.BlockHeight
+
+				if _, err := this.session.Update(&ethScription, "creator", "owner", "hash", "content", "type", "block_height", "block_time", "ctime", "classify"); err != nil {
+					beego.Error("err:", err)
+				}
+			}
 		}
 	}
 }
